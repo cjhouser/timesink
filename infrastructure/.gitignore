@@ -1,0 +1,9 @@
+# Contains architecture and operating system specific binaries
+**/.terraform/*
+
+# State files contain sensitive data
+*.tfstate
+*.tfstate.*
+
+# May contain sensitive data
+*.tfvars
