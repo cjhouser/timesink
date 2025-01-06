@@ -7,3 +7,4 @@
 
 # May contain sensitive data
 *.tfvars
+plan
