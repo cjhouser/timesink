@@ -21,3 +21,12 @@ resource "aws_default_security_group" "platform_default" {
     Name = "platform_default"
   }
 }
+
+resource "aws_default_route_table" "platform_default" {
+  default_route_table_id = aws_vpc.platform.default_route_table_id
+  route = []
+
+  tags = {
+    Name = "platform_default"
+  }
+}
