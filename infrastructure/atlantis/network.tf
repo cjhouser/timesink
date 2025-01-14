@@ -121,4 +121,26 @@ resource "aws_vpc_security_group_ingress_rule" "https" {
   to_port     = 443
 }
 
+resource "aws_internet_gateway" "platform" {
+  vpc_id = aws_vpc.platform.id
+  tags = {
+    Name = "platform"
+  }
+}
+
+resource "aws_lb" "platform" {
+  name               = "platform"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.ingress_https.id]
+  subnets            = [
+    aws_subnet.platform_public_a.id,
+    aws_subnet.platform_public_c.id
+  ]
+
+  enable_deletion_protection = true
+
+  depends_on = [
+    aws_internet_gateway.platform
+  ]
 }
