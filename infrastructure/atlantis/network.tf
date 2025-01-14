@@ -11,9 +11,7 @@ resource "aws_default_network_acl" "platform_default" {
 
   subnet_ids = [
     aws_subnet.platform_private_a.id,
-    aws_subnet.platform_public_a.id,
-    aws_subnet.platform_private_c.id,
-    aws_subnet.platform_public_c.id
+    aws_subnet.platform_private_c.id
   ]
   tags = {
     Name = "platform_default"
@@ -71,4 +69,40 @@ resource "aws_subnet" "platform_private_c" {
   tags = {
     Name       = "platform_private_c"
   }
+}
+
+resource "aws_network_acl" "https" {
+  vpc_id = aws_vpc.platform.id
+
+  egress {
+    protocol   = "tcp"
+    rule_no    = 200
+    action     = "allow"
+    cidr_block = "10.0.0.0/21"
+    from_port  = 32768
+    to_port    = 61000
+  }
+
+  ingress {
+    protocol   = "tcp"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
+
+  tags = {
+    Name = "https"
+  }
+}
+
+resource "aws_network_acl_association" "platform_public_a_https" {
+  network_acl_id = aws_network_acl.https.id
+  subnet_id = aws_subnet.platform_public_a.id
+}
+
+resource "aws_network_acl_association" "platform_public_c_https" {
+  network_acl_id = aws_network_acl.https.id
+  subnet_id = aws_subnet.platform_public_c.id
 }
