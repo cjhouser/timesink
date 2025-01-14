@@ -121,6 +121,20 @@ resource "aws_vpc_security_group_ingress_rule" "https" {
   to_port     = 443
 }
 
+resource "aws_security_group" "https_from_public_subnets" {
+  name        = "https_from_public_subnets"
+  description = "Allow HTTPS traffic to flow to the private subnet from the public subnet"
+  vpc_id      = aws_vpc.platform.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "https_from_public_subnets" {
+  security_group_id = aws_security_group.https_from_public_subnets.id
+  referenced_security_group_id = aws_security_group.ingress_https.id
+  from_port   = 443
+  ip_protocol = "tcp"
+  to_port     = 443
+}
+
 resource "aws_internet_gateway" "platform" {
   vpc_id = aws_vpc.platform.id
   tags = {
