@@ -106,3 +106,19 @@ resource "aws_network_acl_association" "platform_public_c_https" {
   network_acl_id = aws_network_acl.https.id
   subnet_id = aws_subnet.platform_public_c.id
 }
+
+resource "aws_security_group" "ingress_https" {
+  name        = "ingress_https"
+  description = "Allow inbound HTTPS traffic"
+  vpc_id      = aws_vpc.platform.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "https" {
+  security_group_id = aws_security_group.ingress_https.id
+  cidr_ipv4   = "0.0.0.0/0"
+  from_port   = 443
+  ip_protocol = "tcp"
+  to_port     = 443
+}
+
+}
