@@ -207,7 +207,7 @@ resource "aws_network_acl_association" "platform_private_c" {
 #######################
 
 resource "aws_security_group" "alb" {
-  name        = "ingress_https"
+  name        = "alb"
   description = "Allow ALB to get HTTPS traffic from the internet"
   vpc_id      = aws_vpc.platform.id
   tags = {
@@ -399,6 +399,7 @@ resource "aws_acm_certificate_validation" "atlantis" {
 ###########
 ### ECS ###
 ###########
+
 resource "aws_ecs_cluster" "platform" {
   name = "platform"
   setting {
@@ -418,6 +419,7 @@ resource "aws_ecs_task_definition" "atlantis" {
   network_mode             = "awsvpc"
   cpu                      = 256
   memory                   = 512
+  execution_role_arn = aws_iam_role.atlantis_execution.arn
   container_definitions = jsonencode([
     {
       name : "atlantis"
@@ -429,6 +431,17 @@ resource "aws_ecs_task_definition" "atlantis" {
         "--repo-allowlist='github.com/cjhouser/thoughtlyify.io'",
         "--atlantis-url=http://atlantis.thoughtlyify.io",
         "--port=4141",
+        "--web-basic-auth=true"
+      ]
+      secrets: [
+        {
+          "name": "ATLANTIS_WEB_USERNAME",
+          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_USERNAME"
+        },
+        {
+          "name": "ATLANTIS_WEB_PASSWORD",
+          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_PASSWORD"
+        }
       ]
       cpu : 256
       memory : 512
@@ -480,4 +493,81 @@ resource "aws_ecs_service" "atlantis" {
     container_name   = "atlantis"
     container_port   = 4141
   }
+}
+
+###########
+### KMS ###
+###########
+
+resource "aws_kms_key" "atlantis" {
+  description = "Key for encrypting sensitive Atlantis configuration"
+  key_usage = "ENCRYPT_DECRYPT"
+}
+
+##################
+### PARAMETERS ###
+##################
+
+resource "aws_ssm_parameter" "atlantis_web_username" {
+  name        = "/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_USERNAME"
+  description = "ATLANTIS_WEB_USERNAME"
+  type        = "SecureString"
+  value       = var.atlantis_web_username
+  key_id = aws_kms_key.atlantis.id
+  tier = "Standard"
+}
+
+resource "aws_ssm_parameter" "atlantis_web_password" {
+  name        = "/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_PASSWORD"
+  description = "ATLANTIS_WEB_PASSWORD"
+  type        = "SecureString"
+  value       = var.atlantis_web_password
+  key_id = aws_kms_key.atlantis.id
+  tier = "Standard"
+}
+
+###########
+### IAM ###
+###########
+resource "aws_iam_policy" "atlantis_execution" {
+  name        = "atlantis_execution"
+  path        = "/"
+  description = "Allow Atlantis to get parameters from Parameter Store"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement: [
+      {
+        Effect: "Allow"
+        Action: [
+          "ssm:GetParameters",
+          "kms:Decrypt"
+        ]
+        Resource: [
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/*",
+          "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/${aws_kms_key.atlantis.id}"
+        ]
+      }
+    ]
+  })
+}
+resource "aws_iam_role" "atlantis_execution" {
+  name = "atlantis_execution"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "atlantis_execution" {
+  role       = aws_iam_role.atlantis_execution.name
+  policy_arn = aws_iam_policy.atlantis_execution.arn
 }
