@@ -474,8 +474,8 @@ resource "aws_ecs_service" "atlantis" {
   cluster                            = aws_ecs_cluster.platform.id
   task_definition                    = aws_ecs_task_definition.atlantis.arn
   desired_count                      = 1
-  deployment_maximum_percent         = 100
-  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
   launch_type                        = "FARGATE"
   network_configuration {
     subnets = [
