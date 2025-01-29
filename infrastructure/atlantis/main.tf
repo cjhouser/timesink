@@ -431,7 +431,8 @@ resource "aws_ecs_task_definition" "atlantis" {
         "--repo-allowlist='github.com/cjhouser/thoughtlyify.io'",
         "--atlantis-url=http://atlantis.thoughtlyify.io",
         "--port=4141",
-        "--web-basic-auth=true"
+        "--web-basic-auth=true",
+        "--autodiscover-mode=disabled"
       ]
       secrets: [
         {
