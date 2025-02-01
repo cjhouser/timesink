@@ -318,7 +318,6 @@ resource "aws_lb_listener" "atlantis" {
   }
 }
 
-
 resource "aws_lb_target_group" "atlantis" {
   name_prefix     = "atlant"
   port            = 4141
@@ -344,6 +343,7 @@ resource "aws_lb_target_group" "atlantis" {
 ###########
 ### DNS ###
 ###########
+
 resource "aws_route53_zone" "thoughtlyifyio" {
   name = "thoughtlyify.io"
 }
@@ -378,6 +378,7 @@ resource "aws_route53_record" "atlantis_cert_validation" {
 ####################
 ### CERTIFICATES ###
 ####################
+
 resource "aws_acm_certificate" "atlantis" {
   domain_name       = aws_route53_record.atlantis.name
   validation_method = "DNS"
@@ -428,19 +429,19 @@ resource "aws_ecs_task_definition" "atlantis" {
         "server",
         "--gh-user=fake",
         "--gh-token=fake",
-        "--repo-allowlist='github.com/cjhouser/thoughtlyify.io'",
+        "--repo-allowlist=github.com/cjhouser/thoughtlyify.io",
         "--atlantis-url=http://atlantis.thoughtlyify.io",
         "--port=4141",
         "--web-basic-auth=true",
-        "--repo-config-json='{\"repos\":[{\"id\":\"github.com/cjhouser/thoughtlyify.io\",\"branch\":\"/^main$/\",\"repo_config_file\":\"/infrastructure/atlantis.yaml\",\"plan_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"apply_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"import_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"delete_source_branch_on_merge\":true,\"repo_locks\":{\"mode\":\"on_plan\"},\"policy_check\":false,\"autodiscover\":{\"mode\":\"disabled\"}}]}'",
-        "--autodiscover-mode='disabled'",
+        "--repo-config-json={\"repos\":[{\"id\":\"github.com/cjhouser/thoughtlyify.io\",\"branch\":\"/^main$/\",\"repo_config_file\":\"infrastructure/atlantis.yaml\",\"plan_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"apply_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"import_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"delete_source_branch_on_merge\":true,\"repo_locks\":{\"mode\":\"on_plan\"},\"policy_check\":false,\"autodiscover\":{\"mode\":\"disabled\"}}]}",
+        "--autodiscover-mode=disabled",
         "--disable-apply-all",
         "--disable-autoplan",
         "--discard-approval-on-plan",
         "--enable-diff-markdown-format",
-        "--executable-name='tf'",
+        "--executable-name=tf",
         "--hide-prev-plan-comments",
-        "--log-level='warn'",
+        "--log-level=warn",
         "--restrict-file-list",
         "--silence-fork-pr-errors",
         "--silence-no-projects",
@@ -468,12 +469,20 @@ resource "aws_ecs_task_definition" "atlantis" {
       healthCheck = {
         command = [
           "CMD-SHELL",
-          "curl -f http://127.0.0.1:4141 || exit 1"
+          "curl -f http://127.0.0.1:4141/healthz || exit 1"
         ],
-        interval    = 30,
-        timeout     = 5,
-        startPeriod = 10,
+        interval    = 300,
+        timeout     = 60,
+        startPeriod = 300,
         retries     = 3
+      }
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          awslogs-group = aws_cloudwatch_log_group.platform.name
+          awslogs-region = data.aws_region.current.name
+          awslogs-stream-prefix = "atlantis"
+        }
       }
     }
   ])
@@ -543,6 +552,7 @@ resource "aws_ssm_parameter" "atlantis_web_password" {
 ###########
 ### IAM ###
 ###########
+
 resource "aws_iam_policy" "atlantis_execution" {
   name        = "atlantis_execution"
   path        = "/"
@@ -560,10 +570,19 @@ resource "aws_iam_policy" "atlantis_execution" {
           "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/*",
           "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/${aws_kms_key.atlantis.id}"
         ]
+      },
+      {
+        Effect: "Allow"
+        Action: [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource: "*"
       }
     ]
   })
 }
+
 resource "aws_iam_role" "atlantis_execution" {
   name = "atlantis_execution"
   assume_role_policy = jsonencode({
@@ -584,4 +603,13 @@ resource "aws_iam_role" "atlantis_execution" {
 resource "aws_iam_role_policy_attachment" "atlantis_execution" {
   role       = aws_iam_role.atlantis_execution.name
   policy_arn = aws_iam_policy.atlantis_execution.arn
+}
+
+##################
+### CLOUDWATCH ###
+##################
+
+resource "aws_cloudwatch_log_group" "platform" {
+  name = "platform"
+  retention_in_days = 7
 }
