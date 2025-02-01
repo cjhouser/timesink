@@ -432,7 +432,20 @@ resource "aws_ecs_task_definition" "atlantis" {
         "--atlantis-url=http://atlantis.thoughtlyify.io",
         "--port=4141",
         "--web-basic-auth=true",
-        "--autodiscover-mode=disabled"
+        "--repo-config-json='{\"repos\":[{\"id\":\"github.com/cjhouser/thoughtlyify.io\",\"branch\":\"main\",\"repo_config_file\":\"/infrastructure/atlantis.yaml\",\"plan_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"apply_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"import_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"delete_source_branch_on_merge\":true,\"repo_locks\":{\"mode\":\"on_plan\"},\"policy_check\":false,\"autodiscover\":{\"mode\":\"disabled\"}}]}'",
+        "--autodiscover-mode='disabled'",
+        "--disable-apply-all",
+        "--disable-autoplan",
+        "--discard-approval-on-plan",
+        "--enable-diff-markdown-format",
+        "--executable-name='tf'",
+        "--hide-prev-plan-comments",
+        "--log-level='warn'",
+        "--restrict-file-list",
+        "--silence-fork-pr-errors",
+        "--silence-no-projects",
+        "--silence-vcs-status-no-plans",
+        "--silence-vcs-status-no-projects",
       ]
       secrets: [
         {
