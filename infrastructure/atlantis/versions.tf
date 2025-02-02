@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "= 5.82.2"
     }
+    github = {
+      source  = "integrations/github"
+      version = "= 6.5.0"
+    }
   }
 }
 
@@ -16,3 +20,5 @@ provider "aws" {
     }
   }
 }
+
+provider "github" {}
