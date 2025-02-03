@@ -350,7 +350,7 @@ resource "aws_route53_zone" "thoughtlyifyio" {
 
 resource "aws_route53_record" "atlantis" {
   zone_id = aws_route53_zone.thoughtlyifyio.zone_id
-  name    = "atlantis.thoughtlyify.io"
+  name    = "atlantis.${aws_route53_zone.thoughtlyifyio.name}"
   type    = "CNAME"
   ttl     = 300
   records = [
@@ -385,7 +385,7 @@ resource "aws_acm_certificate" "atlantis" {
   key_algorithm     = "RSA_2048"
   validation_option {
     domain_name       = aws_route53_record.atlantis.fqdn
-    validation_domain = "thoughtlyify.io"
+    validation_domain = aws_route53_zone.thoughtlyifyio.name
   }
   lifecycle {
     create_before_destroy = true
@@ -427,10 +427,9 @@ resource "aws_ecs_task_definition" "atlantis" {
       image : "ghcr.io/runatlantis/atlantis:dev-alpine-7b4576a@sha256:feef1f0f9b4d8f3dfa3779109e42119ba2a3d0f887c5c3104d0f81f85e8c7fcc"
       command : [
         "server",
-        "--gh-user=fake",
-        "--gh-token=fake",
+        "--gh-user=thotomaton",
         "--repo-allowlist=github.com/cjhouser/thoughtlyify.io",
-        "--atlantis-url=http://atlantis.thoughtlyify.io",
+        "--atlantis-url=https://atlantis.${aws_route53_zone.thoughtlyifyio.name}",
         "--port=4141",
         "--web-basic-auth=true",
         "--repo-config-json={\"repos\":[{\"id\":\"github.com/cjhouser/thoughtlyify.io\",\"branch\":\"/^main$/\",\"repo_config_file\":\"infrastructure/atlantis.yaml\",\"plan_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"apply_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"import_requirements\":[\"approved\",\"mergeable\",\"undiverged\"],\"delete_source_branch_on_merge\":true,\"repo_locks\":{\"mode\":\"on_plan\"},\"policy_check\":false,\"autodiscover\":{\"mode\":\"disabled\"}}]}",
@@ -456,7 +455,15 @@ resource "aws_ecs_task_definition" "atlantis" {
         {
           "name": "ATLANTIS_WEB_PASSWORD",
           "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_PASSWORD"
-        }
+        },
+        {
+          "name": "ATLANTIS_GH_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_WEBHOOK_SECRET"
+        },
+        {
+          "name": "ATLANTIS_GH_TOKEN",
+          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_TOKEN"
+        },
       ]
       cpu : 256
       memory : 512
@@ -549,6 +556,24 @@ resource "aws_ssm_parameter" "atlantis_web_password" {
   tier = "Standard"
 }
 
+resource "aws_ssm_parameter" "atlantis_gh_webhook_secret" {
+  name        = "/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_WEBHOOK_SECRET"
+  description = "ATLANTIS_GH_WEBHOOK_SECRET"
+  type        = "SecureString"
+  value       = var.atlantis_gh_webhook_secret
+  key_id = aws_kms_key.atlantis.id
+  tier = "Standard"
+}
+
+resource "aws_ssm_parameter" "atlantis_gh_token" {
+  name        = "/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_TOKEN"
+  description = "ATLANTIS_GH_TOKEN"
+  type        = "SecureString"
+  value       = var.atlantis_gh_token
+  key_id = aws_kms_key.atlantis.id
+  tier = "Standard"
+}
+
 ###########
 ### IAM ###
 ###########
@@ -612,4 +637,60 @@ resource "aws_iam_role_policy_attachment" "atlantis_execution" {
 resource "aws_cloudwatch_log_group" "platform" {
   name = "platform"
   retention_in_days = 7
+}
+
+##############
+### GITHUB ###
+##############
+
+resource "github_repository" "thoughtlyifyio" {
+  allow_auto_merge                        = false
+  allow_merge_commit                      = false
+  allow_rebase_merge                      = true
+  allow_squash_merge                      = true
+  allow_update_branch                     = false
+  archive_on_destroy                      = true
+  archived                                = false
+  auto_init                               = false
+  delete_branch_on_merge                  = false
+  has_discussions                         = false
+  has_downloads                           = true
+  has_issues                              = true
+  has_projects                            = true
+  has_wiki                                = false
+  homepage_url                            = "https://thoughtlyify.io"
+  is_template                             = false
+  merge_commit_message                    = "PR_TITLE"
+  merge_commit_title                      = "MERGE_MESSAGE"
+  name                                    = "thoughtlyify.io"
+  squash_merge_commit_message             = "COMMIT_MESSAGES"
+  squash_merge_commit_title               = "COMMIT_OR_PR_TITLE"
+  visibility                              = "public"
+  vulnerability_alerts                    = true
+  web_commit_signoff_required             = true
+  security_and_analysis {
+    secret_scanning {
+      status = "enabled"
+    }
+    secret_scanning_push_protection {
+      status = "enabled"
+    }
+  }
+}
+
+resource "github_repository_webhook" "thoughtlyifyio" {
+  active     = true
+  events     = [
+    "issue_comment",
+    "pull_request",
+    "pull_request_review",
+    "push"
+  ]
+  repository = "thoughtlyify.io"
+  configuration {
+    content_type = "json"
+    insecure_ssl = false
+    secret       = var.atlantis_gh_webhook_secret
+    url          = "https://atlantis.${aws_route53_zone.thoughtlyifyio.name}/events"
+  }
 }
