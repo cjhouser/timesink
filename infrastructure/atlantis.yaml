@@ -3,7 +3,7 @@ automerge: true
 delete_source_branch_on_merge: true
 projects:
 - name: atlantis
-  branch: ^main$
+  branch: /^main$/
   dir: infrastructure/atlantis
   workspace: default
   execution_order_group: 0
