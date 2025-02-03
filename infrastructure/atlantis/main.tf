@@ -420,7 +420,7 @@ resource "aws_ecs_task_definition" "atlantis" {
   network_mode             = "awsvpc"
   cpu                      = 256
   memory                   = 512
-  execution_role_arn = aws_iam_role.atlantis_execution.arn
+  execution_role_arn       = aws_iam_role.atlantis_execution.arn
   container_definitions = jsonencode([
     {
       name : "atlantis"
@@ -447,22 +447,22 @@ resource "aws_ecs_task_definition" "atlantis" {
         "--silence-vcs-status-no-plans",
         "--silence-vcs-status-no-projects",
       ]
-      secrets: [
+      secrets : [
         {
-          "name": "ATLANTIS_WEB_USERNAME",
-          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_USERNAME"
+          "name" : "ATLANTIS_WEB_USERNAME",
+          "valueFrom" : "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_USERNAME"
         },
         {
-          "name": "ATLANTIS_WEB_PASSWORD",
-          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_PASSWORD"
+          "name" : "ATLANTIS_WEB_PASSWORD",
+          "valueFrom" : "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_WEB_PASSWORD"
         },
         {
-          "name": "ATLANTIS_GH_WEBHOOK_SECRET",
-          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_WEBHOOK_SECRET"
+          "name" : "ATLANTIS_GH_WEBHOOK_SECRET",
+          "valueFrom" : "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_WEBHOOK_SECRET"
         },
         {
-          "name": "ATLANTIS_GH_TOKEN",
-          "valueFrom": "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_TOKEN"
+          "name" : "ATLANTIS_GH_TOKEN",
+          "valueFrom" : "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/ATLANTIS_GH_TOKEN"
         },
       ]
       cpu : 256
@@ -486,8 +486,8 @@ resource "aws_ecs_task_definition" "atlantis" {
       logConfiguration = {
         logDriver = "awslogs",
         options = {
-          awslogs-group = aws_cloudwatch_log_group.platform.name
-          awslogs-region = data.aws_region.current.name
+          awslogs-group         = aws_cloudwatch_log_group.platform.name
+          awslogs-region        = data.aws_region.current.name
           awslogs-stream-prefix = "atlantis"
         }
       }
@@ -531,7 +531,7 @@ resource "aws_ecs_service" "atlantis" {
 
 resource "aws_kms_key" "atlantis" {
   description = "Key for encrypting sensitive Atlantis configuration"
-  key_usage = "ENCRYPT_DECRYPT"
+  key_usage   = "ENCRYPT_DECRYPT"
 }
 
 ##################
@@ -543,8 +543,8 @@ resource "aws_ssm_parameter" "atlantis_web_username" {
   description = "ATLANTIS_WEB_USERNAME"
   type        = "SecureString"
   value       = var.atlantis_web_username
-  key_id = aws_kms_key.atlantis.id
-  tier = "Standard"
+  key_id      = aws_kms_key.atlantis.id
+  tier        = "Standard"
 }
 
 resource "aws_ssm_parameter" "atlantis_web_password" {
@@ -552,8 +552,8 @@ resource "aws_ssm_parameter" "atlantis_web_password" {
   description = "ATLANTIS_WEB_PASSWORD"
   type        = "SecureString"
   value       = var.atlantis_web_password
-  key_id = aws_kms_key.atlantis.id
-  tier = "Standard"
+  key_id      = aws_kms_key.atlantis.id
+  tier        = "Standard"
 }
 
 resource "aws_ssm_parameter" "atlantis_gh_webhook_secret" {
@@ -561,8 +561,8 @@ resource "aws_ssm_parameter" "atlantis_gh_webhook_secret" {
   description = "ATLANTIS_GH_WEBHOOK_SECRET"
   type        = "SecureString"
   value       = var.atlantis_gh_webhook_secret
-  key_id = aws_kms_key.atlantis.id
-  tier = "Standard"
+  key_id      = aws_kms_key.atlantis.id
+  tier        = "Standard"
 }
 
 resource "aws_ssm_parameter" "atlantis_gh_token" {
@@ -570,8 +570,8 @@ resource "aws_ssm_parameter" "atlantis_gh_token" {
   description = "ATLANTIS_GH_TOKEN"
   type        = "SecureString"
   value       = var.atlantis_gh_token
-  key_id = aws_kms_key.atlantis.id
-  tier = "Standard"
+  key_id      = aws_kms_key.atlantis.id
+  tier        = "Standard"
 }
 
 ###########
@@ -584,25 +584,25 @@ resource "aws_iam_policy" "atlantis_execution" {
   description = "Allow Atlantis to get parameters from Parameter Store"
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement: [
+    Statement : [
       {
-        Effect: "Allow"
-        Action: [
+        Effect : "Allow"
+        Action : [
           "ssm:GetParameters",
           "kms:Decrypt"
         ]
-        Resource: [
+        Resource : [
           "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/thoughtlyify.io/infrastructure/atlantis/*",
           "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/${aws_kms_key.atlantis.id}"
         ]
       },
       {
-        Effect: "Allow"
-        Action: [
+        Effect : "Allow"
+        Action : [
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource: "*"
+        Resource : "*"
       }
     ]
   })
@@ -635,7 +635,7 @@ resource "aws_iam_role_policy_attachment" "atlantis_execution" {
 ##################
 
 resource "aws_cloudwatch_log_group" "platform" {
-  name = "platform"
+  name              = "platform"
   retention_in_days = 7
 }
 
@@ -644,30 +644,30 @@ resource "aws_cloudwatch_log_group" "platform" {
 ##############
 
 resource "github_repository" "thoughtlyifyio" {
-  allow_auto_merge                        = false
-  allow_merge_commit                      = false
-  allow_rebase_merge                      = true
-  allow_squash_merge                      = true
-  allow_update_branch                     = false
-  archive_on_destroy                      = true
-  archived                                = false
-  auto_init                               = false
-  delete_branch_on_merge                  = false
-  has_discussions                         = false
-  has_downloads                           = true
-  has_issues                              = true
-  has_projects                            = true
-  has_wiki                                = false
-  homepage_url                            = "https://thoughtlyify.io"
-  is_template                             = false
-  merge_commit_message                    = "PR_TITLE"
-  merge_commit_title                      = "MERGE_MESSAGE"
-  name                                    = "thoughtlyify.io"
-  squash_merge_commit_message             = "COMMIT_MESSAGES"
-  squash_merge_commit_title               = "COMMIT_OR_PR_TITLE"
-  visibility                              = "public"
-  vulnerability_alerts                    = true
-  web_commit_signoff_required             = true
+  allow_auto_merge            = false
+  allow_merge_commit          = false
+  allow_rebase_merge          = true
+  allow_squash_merge          = true
+  allow_update_branch         = false
+  archive_on_destroy          = true
+  archived                    = false
+  auto_init                   = false
+  delete_branch_on_merge      = false
+  has_discussions             = false
+  has_downloads               = true
+  has_issues                  = true
+  has_projects                = true
+  has_wiki                    = false
+  homepage_url                = "https://thoughtlyify.io"
+  is_template                 = false
+  merge_commit_message        = "PR_TITLE"
+  merge_commit_title          = "MERGE_MESSAGE"
+  name                        = "thoughtlyify.io"
+  squash_merge_commit_message = "COMMIT_MESSAGES"
+  squash_merge_commit_title   = "COMMIT_OR_PR_TITLE"
+  visibility                  = "public"
+  vulnerability_alerts        = true
+  web_commit_signoff_required = true
   security_and_analysis {
     secret_scanning {
       status = "enabled"
@@ -679,8 +679,8 @@ resource "github_repository" "thoughtlyifyio" {
 }
 
 resource "github_repository_webhook" "thoughtlyifyio" {
-  active     = true
-  events     = [
+  active = true
+  events = [
     "issue_comment",
     "pull_request",
     "pull_request_review",
